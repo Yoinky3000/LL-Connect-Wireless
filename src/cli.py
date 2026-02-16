@@ -3,7 +3,7 @@ import time
 import argparse
 import subprocess
 import httpx
-from utils import SOCKET_PATH, SystemStatus
+from utils import SOCKET_PATH, SystemStatus, VersionStatus
 from vars import APP_VERSION, APP_NAME, APP_ALIAS
 
 def clear_console():
@@ -73,7 +73,23 @@ def run_systemctl(action: str):
     except KeyboardInterrupt:
         sys.exit(0)
 
-def main():
+def check_update(wait = False):
+    try:
+        transport = httpx.HTTPTransport(uds=SOCKET_PATH)
+        with httpx.Client(transport=transport) as client:
+            resp = client.get("http://localhost/version")
+            if resp.status_code == 200:
+                v_data = VersionStatus(**resp.json())
+
+                if v_data.latest_ver != "unknown" and v_data.latest_ver != APP_VERSION and not v_data.checked:
+                    print(f"\n\033[93m[!] UPDATE AVAILABLE: Version {v_data.latest_ver} is out!\033[0m")
+                    print(f"Current version: {APP_VERSION}")
+                    print("Download: https://github.com/Yoinky3000/LL-Connect-Wireless/releases\n")
+                    if wait: time.sleep(5)
+    except Exception:
+        pass
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=f"Linux L-Connect Wireless CLI (Version: {APP_VERSION})",
         epilog=f"You can also use '{APP_NAME}' without arguments to see live monitor.\n\n'{APP_ALIAS}' is also an alias command to '{APP_NAME}'"
@@ -95,6 +111,9 @@ def main():
 
     args = parser.parse_args()
 
+    is_monitor = args.command == "monitor" or args.command is None
+    check_update(wait=is_monitor)
+
     if args.command == "help":
         parser.print_help()
     elif args.command == "status":
@@ -109,6 +128,3 @@ def main():
         run_monitor()
     else:
         run_monitor()
-
-if __name__ == "__main__":
-    main()

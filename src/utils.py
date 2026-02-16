@@ -28,3 +28,7 @@ class SystemStatus(BaseModel):
     timestamp: float
     cpu_temp: Optional[float] = None
     fans: List[Fan]
+
+class VersionStatus(BaseModel):
+    latest_ver: str
+    checked: bool

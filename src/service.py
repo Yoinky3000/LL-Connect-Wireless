@@ -7,7 +7,7 @@ import usb.util
 import psutil
 import uvicorn
 from fastapi import FastAPI
-from utils import DEV_MODE, SOCKET_PATH, Fan, SystemStatus
+from utils import DEV_MODE, SOCKET_PATH, Fan, SystemStatus, VersionStatus
 from typing import List, Literal
 from vars import APP_NAME
 
@@ -22,6 +22,24 @@ def update_state(temp: int, fans: List[Fan]):
         )
 
 
+LATEST_VER = None
+LAST_VER_CHECK = 0.0
+
+def fetch_github_tag():
+    global LATEST_VER
+    repo = "Yoinky3000/LL-Connect-Wireless"
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    try:
+        import httpx 
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(url)
+            if response.status_code == 200:
+                LATEST_VER = response.json()["tag_name"].lstrip('v')
+                print(f"Latest Version Fetched: {LATEST_VER}")
+    except Exception as e:
+        print(f"Failed to fetch latest tag: {e}")
+
+
 # ==============================
 # SOCK SERVER
 # ==============================
@@ -30,6 +48,16 @@ app = FastAPI()
 @app.get("/status", response_model=SystemStatus)
 async def get_status():
     return shared_state
+
+@app.get("/version", response_model=VersionStatus)
+async def get_version():
+    global LAST_VER_CHECK
+    now = time.time()
+    checked = (now - LAST_VER_CHECK) <= 3600
+    response = VersionStatus(latest_ver=LATEST_VER, checked=checked)
+    if not checked:
+        LAST_VER_CHECK = now
+    return response
 
 @app.get("/")
 async def root():
@@ -335,6 +363,7 @@ if __name__ == "__main__":
     tx = None
     rx = None
     try:
+        fetch_github_tag()
         print(f"Start sock server at {SOCKET_PATH}")
         api_thread = threading.Thread(target=start_api_server, daemon=True)
         api_thread.start()
