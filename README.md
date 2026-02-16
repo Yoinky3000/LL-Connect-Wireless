@@ -55,19 +55,26 @@ my pc is built with Lian Li SL120 V3, which is controlled wirelessly with the us
 
 ---
 
-## Installation (RPM)
+## Installation
 
-Install the RPM package:
+### Fedora 43
+
+Go to the [Release](https://github.com/Yoinky3000/LL-Connect-Wireless/releases/latest) page<br />
+Download the rpm package, and install it with dnf:
 
 ```bash
-sudo dnf install ll-connect-wireless-*.rpm
+sudo dnf install *.rpm
 ```
 
-After installation:
+### After installation:
 
 * The service will start automatically
 * Fan control begins immediately
 * No manual configuration is required
+
+### Other distro
+
+Currently, the focus is on Fedora. If you would like to help package this for other distributions (AUR, .deb, etc.), feel free to open a Pull Request!
 
 ---
 
