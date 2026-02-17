@@ -12,6 +12,7 @@ from utils import DEV_MODE, SOCKET_PATH, get_build_identity
 from models import Fan, SystemStatus, VersionInfo, VersionStatus
 from typing import List, Literal
 from vars import APP_NAME, APP_RAW_VERSION, APP_RC, APP_VERSION
+import httpx 
 
 shared_state: SystemStatus = None
 
@@ -25,8 +26,10 @@ def update_state(temp: int, fans: List[Fan]):
 
 LATEST_VER: VersionInfo = None
 LAST_VER_CHECK = 0.0
+LAST_VER_FETCH = 0.0
 
 def fetch_github_tag():
+    global LAST_VER_FETCH
     global LATEST_VER
     current_ver = extractVersion(APP_RAW_VERSION)
     repo = "Yoinky3000/LL-Connect-Wireless"
@@ -39,22 +42,19 @@ def fetch_github_tag():
         {"tag_name": "1.1.0-rc2-rel1"},
     ]
 
-    print(f"Current Version: {APP_RAW_VERSION}")
-    print(f"- SEMVER: {current_ver.semver}")
-    print(f"- Release Candidate: {current_ver.rc}")
-    print(f"- Build Release: {current_ver.release}")
-
     try:
         if TEST_MODE:
             release_res = test_releases
         else:
-            import httpx 
+            now = time.time()
+            if (now - LAST_VER_FETCH) < 75: return
             with httpx.Client(timeout=5.0) as client:
                 response = client.get(url)
                 if response.status_code == 200:
                     release_res = response.json()
                 else:
                     release_res = None
+                LAST_VER_FETCH = time.time()
 
         if not release_res:
             LATEST_VER = current_ver
@@ -88,10 +88,7 @@ def fetch_github_tag():
                     break
         
         if LATEST_VER:
-            print(f"Remote Version Fetched: {LATEST_VER.raw_tag}")
-            print(f"- SEMVER: {LATEST_VER.semver}")
-            print(f"- Release Candidate: {LATEST_VER.rc}")
-            print(f"- Build Release: {LATEST_VER.release}")
+            return True
         else:
             LATEST_VER = current_ver
 
@@ -112,8 +109,8 @@ async def get_status():
 @app.get("/version", response_model=VersionStatus)
 async def get_version():
     global LAST_VER_CHECK, LATEST_VER
+    fetch_github_tag()
     now = time.time()
-    
     
     new_ver = LATEST_VER.semver > APP_VERSION
     graduation = (LATEST_VER.semver == APP_VERSION and APP_RC > 0 and LATEST_VER.rc == 0)
@@ -443,7 +440,17 @@ if __name__ == "__main__":
     tx = None
     rx = None
     try:
-        fetch_github_tag()
+        current_ver = extractVersion(APP_RAW_VERSION)
+        print(f"Current Version: {APP_RAW_VERSION}")
+        print(f"- SEMVER: {current_ver.semver}")
+        print(f"- Release Candidate: {current_ver.rc}")
+        print(f"- Build Release: {current_ver.release}")
+        res = fetch_github_tag()
+        if res:
+            print(f"Remote Version Fetched: {LATEST_VER.raw_tag}")
+            print(f"- SEMVER: {LATEST_VER.semver}")
+            print(f"- Release Candidate: {LATEST_VER.rc}")
+            print(f"- Build Release: {LATEST_VER.release}")
         print(f"Start sock server at {SOCKET_PATH}")
         api_thread = threading.Thread(target=start_api_server, daemon=True)
         api_thread.start()
