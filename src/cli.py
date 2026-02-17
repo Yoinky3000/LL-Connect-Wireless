@@ -40,23 +40,20 @@ def render(status: SystemStatus):
         )
 
 def run_monitor():
-    try:
-        err = 0
-        while True:
-            try:
-                state = fetch_state()
-                render(state)
-                err = 0
-            except Exception as e:
-                err += 1
-                clear_console()
-                print(f"Connection Lost. Retrying... ({err})")
-                if err > 5:
-                    print(f"\nDaemon might be down. Try: {APP_NAME} status")
-                    sys.exit(1)
-            time.sleep(1)
-    except KeyboardInterrupt:
-        sys.exit(0)
+    err = 0
+    while True:
+        try:
+            state = fetch_state()
+            render(state)
+            err = 0
+        except Exception as e:
+            err += 1
+            clear_console()
+            print(f"Connection Lost. Retrying... ({err})")
+            if err > 5:
+                print(f"\nDaemon might be down. Try: {APP_NAME} status")
+                sys.exit(1)
+        time.sleep(1)
 
 def run_systemctl(action: str):
     service_name = f"{APP_NAME}.service"
@@ -71,8 +68,6 @@ def run_systemctl(action: str):
     except FileNotFoundError:
         print("Error: 'systemctl' command not found. Are you sure you are using in Linux?")
         sys.exit(1)
-    except KeyboardInterrupt:
-        sys.exit(0)
 
 def run_info(remote_ver: VersionStatus | False):
     try:
@@ -170,53 +165,58 @@ def printOutdated(newVer: VersionInfo, wait = False):
         display += f" (RC{newVer.rc})"
     print(f"\n\033[93m[!] UPDATE AVAILABLE: Version {display} is out!\033[0m")
     print(f"Current version: {APP_RAW_VERSION}")
-    print(f"Download: https://github.com/Yoinky3000/LL-Connect-Wireless/releases/tag/{newVer.raw_tag}\n")
+    print(f"Run 'llcw update' to update")
+    print(f"Or you can download from: https://github.com/Yoinky3000/LL-Connect-Wireless/releases/tag/{newVer.raw_tag}\n")
     if wait: 
         time.sleep(5)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=f"LL-Connect-Wireless (LLCW) CLI (Version: {APP_RAW_VERSION})",
-        epilog=f"You can also use '{APP_NAME}' without arguments to see live monitor.\n\n'{APP_ALIAS}' is also an alias command to '{APP_NAME}'"
-    )
-    
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    try:
+        parser = argparse.ArgumentParser(
+            description=f"LL-Connect-Wireless (LLCW) CLI (Version: {APP_RAW_VERSION})",
+            epilog=f"You can also use '{APP_NAME}' without arguments to see live monitor.\n\n'{APP_ALIAS}' is also an alias command to '{APP_NAME}'"
+        )
+        
+        subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    subparsers.add_parser("help", help="same as -h/--help")
+        subparsers.add_parser("help", help="same as -h/--help")
 
-    subparsers.add_parser("info", help="show app version info and changelog of llcw")
+        subparsers.add_parser("info", help="show app version info and changelog of llcw")
 
-    subparsers.add_parser("update", help="check and update llcw to latest version")
+        subparsers.add_parser("update", help="check and update llcw to latest version")
 
-    subparsers.add_parser("status", help="show systemd service status")
+        subparsers.add_parser("status", help="show systemd service status")
 
-    subparsers.add_parser("start", help="start the background daemon")
+        subparsers.add_parser("start", help="start the background daemon")
 
-    subparsers.add_parser("stop", help="stop the background daemon")
+        subparsers.add_parser("stop", help="stop the background daemon")
 
-    subparsers.add_parser("restart", help="restart the background daemon")
-    
-    subparsers.add_parser("monitor", help="show live fan monitor (Default to it if no command is provided)")
+        subparsers.add_parser("restart", help="restart the background daemon")
+        
+        subparsers.add_parser("monitor", help="show live fan monitor (Default to it if no command is provided)")
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    is_monitor = args.command == "monitor" or args.command is None
-    remoteVer = check_update()
-    if (remoteVer and remoteVer.outdated and not remoteVer.notified and not args.command == "info"): printOutdated(remoteVer.data, is_monitor)
+        is_monitor = args.command == "monitor" or args.command is None
+        remoteVer = check_update()
+        if (remoteVer and remoteVer.outdated and not remoteVer.notified and not args.command == "info" and not args.command == "update"):
+            printOutdated(remoteVer.data, is_monitor)
 
-    if is_monitor:
-        run_monitor()
-    elif args.command == "info":
-        run_info(remoteVer)
-    elif args.command == "update":
-        run_update(remoteVer)
-    elif args.command == "status":
-        run_systemctl("status")
-    elif args.command == "start":
-        run_systemctl("start")
-    elif args.command == "stop":
-        run_systemctl("stop")
-    elif args.command == "restart":
-        run_systemctl("restart")
-    else:
-        parser.print_help()
+        if is_monitor:
+            run_monitor()
+        elif args.command == "info":
+            run_info(remoteVer)
+        elif args.command == "update":
+            run_update(remoteVer)
+        elif args.command == "status":
+            run_systemctl("status")
+        elif args.command == "start":
+            run_systemctl("start")
+        elif args.command == "stop":
+            run_systemctl("stop")
+        elif args.command == "restart":
+            run_systemctl("restart")
+        else:
+            parser.print_help()
+    except KeyboardInterrupt:
+        sys.exit(0)
