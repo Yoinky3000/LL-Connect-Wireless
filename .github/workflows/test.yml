@@ -2,12 +2,29 @@ name: Test Build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'test*'
 
 concurrency:
   group: test-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify:
+  verify-build:
     uses: ./.github/workflows/build.yml
+
+  verify-artifacts:
+    needs: verify-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Installers
+        uses: actions/download-artifact@v4
+        with:
+          path: llcw
+          pattern: "*-*"
+          merge-multiple: true
+
+      - name: List Installers
+        run: |
+          ls -R llcw

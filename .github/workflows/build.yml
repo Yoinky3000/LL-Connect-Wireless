@@ -1,4 +1,4 @@
-name: "Build Installer"
+name: Build Installer
 
 on:
   workflow_call:
@@ -36,5 +36,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fedora-${{ matrix.fedora_ver }}
-          path: ./rpm/.result/*.rpm
+          path: ~/rpmbuild/RPMS/x86_64/*.rpm
           retention-days: 1
+          if-no-files-found: error
