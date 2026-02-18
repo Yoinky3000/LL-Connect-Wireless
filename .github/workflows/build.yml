@@ -31,6 +31,7 @@ jobs:
           chmod +x ./rpm/compile.sh
           chmod +x vars.sh
           ./rpm/compile.sh ${{ (inputs.tag_name != '' && format('--releaseVer {0}', inputs.tag_name)) || '' }}
+          ls -al ./rpm/.result/
 
       - name: test
         run: |
