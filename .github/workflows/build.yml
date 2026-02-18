@@ -36,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fedora-${{ matrix.fedora_ver }}
-          path: ~/rpmbuild/RPMS/**/*.rpm
+          path: ~/rpmbuild/RPMS/*.rpm
           retention-days: 1
