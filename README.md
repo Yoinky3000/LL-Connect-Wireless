@@ -57,7 +57,7 @@ my pc is built with Lian Li SL120 V3, which is controlled wirelessly with the us
 
 ## Installation
 
-### Fedora 43
+### Fedora 42/43
 
 Go to the [Release](https://github.com/Yoinky3000/LL-Connect-Wireless/releases/latest) page<br />
 Download the rpm package, and install it with dnf:
@@ -79,6 +79,24 @@ Currently, the focus is on Fedora. If you would like to help package this for ot
 ---
 
 ## CLI Usage
+
+Get command usages:
+
+```bash
+ll-connect-wireless help
+```
+
+Get info of llcw:
+
+```bash
+ll-connect-wireless info
+```
+
+Update llcw:
+
+```bash
+ll-connect-wireless update
+```
 
 Check service status:
 
@@ -134,7 +152,7 @@ Fan Address       | Fans | Cur % | Tgt % | RPM
 
 * The daemon runs as **non-root**
 * USB permissions are managed via udev rules
-* CLI access does **not** require root, except for start/stop/restart the service
+* CLI access does **not** require root, except for start/stop/restart the service and update the app
 
 ---
 

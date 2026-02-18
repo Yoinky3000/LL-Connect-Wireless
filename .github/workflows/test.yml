@@ -5,6 +5,11 @@ on:
     branches:
       - main
       - 'test*'
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '**.md'
 
 concurrency:
   group: test-build-${{ github.ref }}
