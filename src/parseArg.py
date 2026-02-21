@@ -16,7 +16,7 @@ def extractVersion(raw_tag: str, release_note: str | None = None, installer_url:
 
     rel_match = re.search(r'-rel(\d+)', raw_tag)
     if rel_match:
-        release_num = int(rel_match.group(1)) + 1
+        release_num = int(rel_match.group(1))
 
     rc_match = re.search(r'-rc(\d+)', raw_tag)
     if rc_match:
