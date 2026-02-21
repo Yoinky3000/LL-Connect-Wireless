@@ -2,6 +2,7 @@ import sys
 import time
 import argparse
 import subprocess
+from typing import Optional
 import httpx
 from utils import SOCKET_PATH, get_build_identity
 from models import SystemStatus, VersionInfo, VersionStatus
@@ -70,7 +71,7 @@ def run_systemctl(action: str):
         print("Error: 'systemctl' command not found. Are you sure you are using in Linux?")
         sys.exit(1)
 
-def run_info(remote_ver: VersionStatus | False):
+def run_info(remote_ver: Optional[VersionStatus]):
     try:
         print("\033[1mLL-Connect-Wireless Information\033[0m")
         print("-" * 30)
@@ -79,16 +80,18 @@ def run_info(remote_ver: VersionStatus | False):
         if remote_ver:
             v = remote_ver.data
             print(f"\033[1mREMOTE_VERSION:\033[0m  {v.raw_tag}")
+            release_note = getattr(v, "release_note", "")
         else: 
             print(f"\033[1mREMOTE_VERSION:\033[0m  Unknown")
+            release_note = "You can run 'llcw update' to update to latest version from GitHub."
         print("-" * 30)
         print("\033[1mCHANGE_LOG:\033[0m")
-        print(getattr(v, 'release_note', "You can run 'llcw update' to update to latest version from GitHub."))
+        print(release_note)
         print("-" * 30)
     except Exception as e:
         print(f"Could not connect to daemon: {e}")
 
-def run_update(remote_ver: VersionStatus | False):
+def run_update(remote_ver: Optional[VersionStatus]):
     if not remote_ver:
         print("Could not retrieve version information from the daemon.")
         return
@@ -148,7 +151,7 @@ def run_update(remote_ver: VersionStatus | False):
     except Exception as e:
         print(f"\033[91mAn unexpected error occurred: {e}\033[0m")
 
-def check_update():
+def check_update() -> Optional[VersionStatus]:
     try:
         transport = httpx.HTTPTransport(uds=SOCKET_PATH)
         with httpx.Client(transport=transport) as client:
@@ -156,9 +159,9 @@ def check_update():
             if resp.status_code == 200:
                 remoteVer = VersionStatus(**resp.json())
                 return remoteVer
-            return False
+            return None
     except Exception:
-        return False
+        return None
 
 def printOutdated(newVer: VersionInfo, wait = False):
     display = newVer.semver
