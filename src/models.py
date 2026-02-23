@@ -29,9 +29,9 @@ class VersionInfo(BaseModel):
     release: int
     compile_ver: str
     raw_tag: str
-    release_note: str | None
-    installer_url: str | None
-    last_notified: float | None
+    release_note: Optional[str]
+    installer_url: Optional[str]
+    last_notified: Optional[float]
 
 
 class VersionStatus(BaseModel):
