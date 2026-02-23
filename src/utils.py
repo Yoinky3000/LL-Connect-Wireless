@@ -60,7 +60,7 @@ def get_build_identity():
     os_ver = dist_info.get("VERSION_ID", "")
 
     dist_tag = f"{os_id}{os_ver}"
-    if os_id in ["fedora", "centos", "rhel"]:
+    if os_id in ["fedora", "centos", "rhel", "almalinux", "rocky"]:
         ext = "rpm"
         try:
             dist_tag = (
