@@ -42,7 +42,7 @@ jobs:
             dnf install -y epel-release
             dnf config-manager --set-enabled crb || dnf install -y 'dnf-command(config-manager)' && dnf config-manager --set-enabled crb
           fi
-          dnf install -y rpm-build python3-devel gcc python3-pip tar sed systemd-rpm-macros
+          dnf install -y rpm-build python3-devel gcc python3-pip tar sed systemd-rpm-macros libusb1-devel
           pip install -r requirements.txt --break-system-packages || pip install -r requirements.txt
 
       - name: Run Build
@@ -91,6 +91,7 @@ jobs:
             python3-dev \
             python3-pip \
             python3-venv \
+            libusb-1.0-0-dev \
             sudo
           pip install -r requirements.txt --break-system-packages || pip install -r requirements.txt
 
