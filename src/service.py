@@ -404,23 +404,23 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
                 print(f"{'Fan Address':17} | Fans | Cur % | Tgt % | RPM")
                 print("-" * 72)
 
-            for d in fans:
-                mac = d.mac
+                for d in fans:
+                    mac = d.mac
 
-                tgt_pwm = d.target_pwm
+                    tgt_pwm = d.target_pwm
 
-                cur_pct = int(d.pwm / 255 * 100)
-                tgt_pct = int(tgt_pwm / 255 * 100)
+                    cur_pct = int(d.pwm / 255 * 100)
+                    tgt_pct = int(tgt_pwm / 255 * 100)
 
-                rpm = ", ".join(str(r) for r in d.rpm if r > 0)
+                    rpm = ", ".join(str(r) for r in d.rpm if r > 0)
 
-                print(
-                    f"{mac:17} | "
-                    f"{d.fan_count:>4} | "
-                    f"{cur_pct:>5}% | "
-                    f"{tgt_pct:>5}% | "
-                    f"{rpm}"
-                )
+                    print(
+                        f"{mac:17} | "
+                        f"{d.fan_count:>4} | "
+                        f"{cur_pct:>5}% | "
+                        f"{tgt_pct:>5}% | "
+                        f"{rpm}"
+                    )
             err = 0
             last_fans_data = fans
         except Exception as e:

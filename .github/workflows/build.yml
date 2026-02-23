@@ -20,15 +20,9 @@ jobs:
           - distro: fedora
             version: "43"
             image: "fedora:43"
-          - distro: centos
-            version: "stream9"
-            image: "quay.io/centos/centos:stream9"
           - distro: almalinux
             version: "9"
             image: "almalinux:9"
-          - distro: rockylinux
-            version: "9"
-            image: "rockylinux:9"
     container:
       image: ${{ matrix.image }}
 
