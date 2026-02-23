@@ -1,12 +1,13 @@
 import argparse
 import re
 from datetime import datetime
+from typing import Optional
 
 from models import VersionInfo
 
 
 def extractVersion(
-    raw_tag: str, release_note: str | None = None, installer_url: str | None = None
+    raw_tag: str, release_note: Optional[str] = None, installer_url: Optional[str] = None
 ):
     release_num = 1
     rc_num = 0
