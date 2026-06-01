@@ -143,6 +143,48 @@ If you would like to help package this for additional distributions, feel free t
 
 ---
 
+## Quick Start
+
+After installing and starting the service (`llcw start`), here is the common setup flow.
+All commands accept the `llcw` alias shown below or the full `ll-connect-wireless` name.
+
+**1. See your fans and their assigned temp source:**
+
+```bash
+llcw monitor          # live view with ID / Src columns (Ctrl+C to exit)
+```
+
+**2. Pick a control mode** (`curve` for 4-point curves, `linear` for a 2-point line):
+
+```bash
+llcw settings set-mode curve
+```
+
+**3. Set your fan curves** (`temp:percent` points, see formats below):
+
+```bash
+llcw settings curve set-cpu-curve 50:27,60:37,90:70,95:100
+llcw settings curve set-gpu-curve 35:30,60:40,70:60,75:90
+# linear mode equivalents:
+llcw settings linear set-curve 35:10,80:70
+llcw settings linear set-gpu-curve 35:25,75:90
+```
+
+**4. Assign which temperature drives each fan group** (defaults to CPU):
+
+```bash
+llcw settings set-source 1 gpu       # fan ID 1 follows GPU temp
+llcw settings set-source 0,2 mix     # fans 0 and 2 follow max(CPU, GPU)
+llcw settings show-sources           # ID / MAC / source table
+llcw settings clear-sources all      # reset every fan back to CPU
+```
+
+Fan IDs come from the `ID` column in `llcw monitor` / `llcw settings show-sources`.
+Changes apply immediately — no restart needed. Run `llcw settings` at any time to print
+the full current configuration.
+
+---
+
 ## CLI Usage
 
 Full CLI reference can be found here:

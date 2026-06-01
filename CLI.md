@@ -3,10 +3,11 @@
 ## `ll-connect-wireless`
 
 ```bash
-usage: gen_cli_doc.py [-h] [--print-completion {bash,zsh,tcsh}]
-                      {help,info,update,status,enable,disable,start,stop,restart,monitor,uninstall,settings} ...
+usage: ll-connect-wireless [-h] [--print-completion {bash,zsh,tcsh}]
+                           {help,info,update,status,enable,disable,start,stop,restart,monitor,uninstall,settings}
+                           ...
 
-LL-Connect-Wireless (LLCW) CLI (Version: 0.0.0)
+LL-Connect-Wireless (LLCW) CLI (Version: 20260311.0745.4542)
 
 positional arguments:
   {help,info,update,status,enable,disable,start,stop,restart,monitor,uninstall,settings}
@@ -20,8 +21,8 @@ positional arguments:
     start               start the llcw service
     stop                stop the llcw service
     restart             restart the llcw service
-    monitor             show live fan monitor (Default to it if no command
-                        is provided)
+    monitor             show live fan monitor (Default to it if no command is
+                        provided)
     uninstall           stop, disable and remove llcw
     settings            Manage settings
 
@@ -37,17 +38,22 @@ options:
 ## `ll-connect-wireless settings`
 
 ```bash
-usage: gen_cli_doc.py settings [-h]
-                               {set-mode,reset,linear,curve,set-gpu-macs,clear-gpu-macs} ...
+usage: ll-connect-wireless settings [-h]
+                                    {set-mode,reset,linear,curve,set-source,clear-sources,show-sources}
+                                    ...
 
 positional arguments:
-  {set-mode,reset,linear,curve,set-gpu-macs,clear-gpu-macs}
+  {set-mode,reset,linear,curve,set-source,clear-sources,show-sources}
     set-mode            set control mode
     reset               reset the settings
     linear              Linear mode settings
     curve               Curve mode settings
-    set-gpu-macs        set GPU-routed MAC addresses
-    clear-gpu-macs      clear GPU-routed MAC addresses
+    set-source          assign fan(s) to a temperature source group (requires
+                        running service)
+    clear-sources       reset fan(s) back to CPU temperature source (requires
+                        running service)
+    show-sources        show temperature source group for each fan (requires
+                        running service)
 
 options:
   -h, --help            show this help message and exit
@@ -56,8 +62,9 @@ options:
 ## `ll-connect-wireless settings linear`
 
 ```bash
-usage: gen_cli_doc.py settings linear [-h]
-                                      {reset,reset-gpu-curve,set-curve,set-gpu-curve} ...
+usage: ll-connect-wireless settings linear [-h]
+                                           {reset,reset-gpu-curve,set-curve,set-gpu-curve}
+                                           ...
 
 positional arguments:
   {reset,reset-gpu-curve,set-curve,set-gpu-curve}
@@ -73,8 +80,9 @@ options:
 ## `ll-connect-wireless settings curve`
 
 ```bash
-usage: gen_cli_doc.py settings curve [-h]
-                                     {reset,set-cpu-curve,set-gpu-curve} ...
+usage: ll-connect-wireless settings curve [-h]
+                                          {reset,set-cpu-curve,set-gpu-curve}
+                                          ...
 
 positional arguments:
   {reset,set-cpu-curve,set-gpu-curve}

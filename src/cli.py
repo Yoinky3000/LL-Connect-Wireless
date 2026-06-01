@@ -113,6 +113,11 @@ def render(status: SystemStatus, settings: Settings):
             f"{rpm}"
         )
 
+    print(
+        f"\nTip: change a fan's Src with "
+        f"'{APP_ALIAS} settings set-source <ID> <cpu|gpu|mix>'"
+    )
+
 
 def run_monitor():
     err = 0
@@ -602,6 +607,12 @@ if __name__ == "__main__":
                     for idx, f in enumerate(state.fans):
                         src = get_fan_source(f.mac, settings)
                         print(f"{idx:>3}  {f.mac:17}  {src}")
+                    print(
+                        f"\nAssign:  {APP_ALIAS} settings set-source <ID> <cpu|gpu|mix>"
+                    )
+                    print(
+                        f"Reset:   {APP_ALIAS} settings clear-sources <ID|all>"
+                    )
                 except httpx.ConnectError:
                     print(
                         "Error: Service is not running. Start it first with: llcw start"
