@@ -52,10 +52,42 @@ def reload_service_settings():
         with httpx.Client(transport=transport) as client:
             client.post("http://localhost/reload-settings")
     except:
-        print("\033[93mUnable to inform the changes to daemon, maybe it's not running.\033[0m")
+        print(
+            "\033[93mUnable to inform the changes to daemon, maybe it's not running.\033[0m"
+        )
 
 
-def render(status: SystemStatus):
+def resolve_fan_ids(fan_ids_str: str, fans) -> list:
+    ids = []
+    for part in fan_ids_str.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            fid = int(part)
+        except ValueError:
+            raise ValueError(f"'{part}' is not a valid fan ID (must be an integer)")
+        if fid < 0 or fid >= len(fans):
+            raise ValueError(
+                f"Fan ID {fid} is out of range. Valid IDs: 0-{len(fans) - 1}"
+            )
+        if fid not in ids:
+            ids.append(fid)
+    if not ids:
+        raise ValueError("No fan IDs provided")
+    return [fans[i].mac.lower() for i in ids]
+
+
+def get_fan_source(mac: str, settings: Settings) -> str:
+    mac = mac.lower()
+    if mac in settings.gpu_macs:
+        return "GPU"
+    elif mac in settings.mix_macs:
+        return "MIX"
+    return "CPU"
+
+
+def render(status: SystemStatus, settings: Settings):
     clear_console()
     print(f"LL-Connect-Wireless Monitor\n\n")
 
@@ -63,29 +95,38 @@ def render(status: SystemStatus):
     gpu_text = f"{status.gpu_temp:.1f} °C" if status.gpu_temp is not None else "N/A"
     print(f"CPU Temp: {cpu_text}")
     print(f"GPU Temp: {gpu_text}\n")
-    print(f"{'Fan Address':17} | Fans | Cur % | Tgt % | RPM")
-    print("-" * 72)
+    print(f"{'ID':>3}  {'Fan Address':17} | Fans | Src | Cur % | Tgt % | RPM")
+    print("-" * 78)
 
-    for f in status.fans:
+    for idx, f in enumerate(status.fans):
         cur_pct = int(f.pwm / 255 * 100)
         tgt_pct = int(f.target_pwm / 255 * 100)
         rpm = ", ".join(str(r) for r in f.rpm)
+        src = get_fan_source(f.mac, settings)
 
         print(
-            f"{f.mac:17} | "
+            f"{idx:>3}  {f.mac:17} | "
             f"{f.fan_count:>4} | "
+            f"{src:>3} | "
             f"{cur_pct:>5}% | "
             f"{tgt_pct:>5}% | "
             f"{rpm}"
         )
 
+    print(
+        f"\nTip: change a fan's Src with "
+        f"'{APP_ALIAS} settings set-source <ID> <cpu|gpu|mix>'"
+    )
+
 
 def run_monitor():
     err = 0
+    settings = load_settings()
     while True:
         try:
             state = fetch_state()
-            render(state)
+            settings = load_settings()
+            render(state, settings)
             err = 0
         except Exception as e:
             err += 1
@@ -242,8 +283,13 @@ def show_settings(settings: Settings):
     print("Curve Mode:")
     print(f"  CPU_FAN_CURVE : {format_four_point_curve(settings.cpu_curve)}")
     print(f"  GPU_FAN_CURVE : {format_four_point_curve(settings.gpu_curve)}")
+    print()
+    print("Fan Source Groups:")
     print(
-        f"  GPU_TEMP_MACS : {', '.join(settings.gpu_temp_macs) if settings.gpu_temp_macs else '(none)'}"
+        f"  GPU_MACS : {', '.join(settings.gpu_macs) if settings.gpu_macs else '(none)'}"
+    )
+    print(
+        f"  MIX_MACS : {', '.join(settings.mix_macs) if settings.mix_macs else '(none)'}"
     )
     print("-" * 30)
 
@@ -265,9 +311,6 @@ def show_curve_settings(settings: Settings):
     print("-" * 30)
     print(f"CPU_FAN_CURVE : {format_four_point_curve(settings.cpu_curve)}")
     print(f"GPU_FAN_CURVE : {format_four_point_curve(settings.gpu_curve)}")
-    print(
-        f"GPU_TEMP_MACS : {', '.join(settings.gpu_temp_macs) if settings.gpu_temp_macs else '(none)'}"
-    )
     print("-" * 30)
 
 
@@ -366,13 +409,34 @@ def generate_parser():
     gpu_curve_set.add_argument(
         "curve", help="format: 'temp:percent,temp:percent,temp:percent,temp:percent'"
     )
-    gpu_macs_set = settings_sub.add_parser(
-        "set-gpu-macs", help="set GPU-routed MAC addresses"
+    set_source_parser = settings_sub.add_parser(
+        "set-source",
+        help="assign fan(s) to a temperature source group (requires running service)",
     )
-    gpu_macs_set.add_argument(
-        "macs", help="format: 'aa:bb:cc:dd:ee:ff,11:22:33:44:55:66'"
+    set_source_parser.add_argument(
+        "fan_ids", help="comma-separated fan IDs from monitor (e.g. '0,2,3')"
     )
-    settings_sub.add_parser("clear-gpu-macs", help="clear GPU-routed MAC addresses")
+    set_source_parser.add_argument(
+        "group",
+        choices=["cpu", "gpu", "mix"],
+        help="temperature source: cpu (default), gpu, or mix (max of cpu and gpu)",
+    )
+
+    clear_sources_parser = settings_sub.add_parser(
+        "clear-sources",
+        help="reset fan(s) back to CPU temperature source (requires running service)",
+    )
+    clear_sources_parser.add_argument(
+        "fan_ids",
+        nargs="?",
+        default="all",
+        help="comma-separated fan IDs to reset, or 'all' (default: all)",
+    )
+
+    settings_sub.add_parser(
+        "show-sources",
+        help="show temperature source group for each fan (requires running service)",
+    )
 
     parser.add_argument(
         "--print-completion",
@@ -491,21 +555,70 @@ if __name__ == "__main__":
                     print("Finished reset curve mode settings")
                 else:
                     show_curve_settings(settings)
-            elif args.settings_cmd == "set-gpu-macs":
+            elif args.settings_cmd == "set-source":
                 try:
-                    settings.gpu_temp_macs = [
-                        m.strip() for m in args.macs.split(",") if m.strip()
-                    ]
+                    state = fetch_state()
+                    fan_macs = resolve_fan_ids(args.fan_ids, state.fans)
+                    for mac in fan_macs:
+                        if mac in settings.gpu_macs:
+                            settings.gpu_macs.remove(mac)
+                        if mac in settings.mix_macs:
+                            settings.mix_macs.remove(mac)
+                        if args.group == "gpu":
+                            settings.gpu_macs.append(mac)
+                        elif args.group == "mix":
+                            settings.mix_macs.append(mac)
                     save_settings(settings)
                     reload_service_settings()
-                    print("GPU MAC routing list updated successfully.")
+                    print(f"Fan(s) {args.fan_ids} assigned to {args.group} group.")
+                except httpx.ConnectError:
+                    print(
+                        "Error: Service is not running. Start it first with: llcw start"
+                    )
                 except Exception as e:
                     print(f"Error: {e}")
-            elif args.settings_cmd == "clear-gpu-macs":
-                settings.gpu_temp_macs = []
-                save_settings(settings)
-                reload_service_settings()
-                print("Cleared GPU MAC routing list.")
+            elif args.settings_cmd == "clear-sources":
+                try:
+                    if args.fan_ids.strip().lower() == "all":
+                        settings.gpu_macs = []
+                        settings.mix_macs = []
+                    else:
+                        state = fetch_state()
+                        fan_macs = resolve_fan_ids(args.fan_ids, state.fans)
+                        for mac in fan_macs:
+                            if mac in settings.gpu_macs:
+                                settings.gpu_macs.remove(mac)
+                            if mac in settings.mix_macs:
+                                settings.mix_macs.remove(mac)
+                    save_settings(settings)
+                    reload_service_settings()
+                    print("Fan source(s) reset to CPU.")
+                except httpx.ConnectError:
+                    print(
+                        "Error: Service is not running. Start it first with: llcw start"
+                    )
+                except Exception as e:
+                    print(f"Error: {e}")
+            elif args.settings_cmd == "show-sources":
+                try:
+                    state = fetch_state()
+                    print(f"{'ID':>3}  {'Fan Address':17}  Source")
+                    print("-" * 40)
+                    for idx, f in enumerate(state.fans):
+                        src = get_fan_source(f.mac, settings)
+                        print(f"{idx:>3}  {f.mac:17}  {src}")
+                    print(
+                        f"\nAssign:  {APP_ALIAS} settings set-source <ID> <cpu|gpu|mix>"
+                    )
+                    print(
+                        f"Reset:   {APP_ALIAS} settings clear-sources <ID|all>"
+                    )
+                except httpx.ConnectError:
+                    print(
+                        "Error: Service is not running. Start it first with: llcw start"
+                    )
+                except Exception as e:
+                    print(f"Error: {e}")
             else:
                 show_settings(settings)
         else:

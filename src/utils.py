@@ -20,7 +20,13 @@ from vars import APP_NAME, APP_RAW_VERSION, APP_RC, APP_VERSION
 
 DEV_MODE = os.getenv("DEV")
 ROOT_DIR = Path(os.path.realpath(__file__)).parent
-SOCKET_DIR = (ROOT_DIR / ".sock") if DEV_MODE else (Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}") / APP_NAME)
+SOCKET_DIR = (
+    (ROOT_DIR / ".sock")
+    if DEV_MODE
+    else (
+        Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}") / APP_NAME
+    )
+)
 SOCKET_PATH = str(SOCKET_DIR / "ll-connect-wireless.sock")
 CACHE_DIR = Path(os.path.expanduser("~/.cache/")) / APP_NAME
 CACHE_PATH = CACHE_DIR / "remoteVer.json"
@@ -183,7 +189,7 @@ def fetch_github_tag():
 
         releases: List[VersionInfo] = []
         dist, arch, ext = get_build_identity()
-        match_pattern = '.'.join([dist, arch, ext])
+        match_pattern = ".".join([dist, arch, ext])
         for r in release_res:
             assets = r.get("assets", [])
             installer_url = None
@@ -279,15 +285,32 @@ def load_settings() -> Settings:
                 except (ValidationError, ValueError):
                     changed = True
 
-            gpu_macs_raw = raw.get("GPU_TEMP_MACS", raw.get("gpu_temp_macs"))
+            gpu_macs_raw = raw.get(
+                "GPU_MACS",
+                raw.get("gpu_macs", raw.get("GPU_TEMP_MACS", raw.get("gpu_temp_macs"))),
+            )
             if gpu_macs_raw is not None:
                 try:
                     if isinstance(gpu_macs_raw, str):
-                        settings.gpu_temp_macs = [
+                        settings.gpu_macs = [
                             m.strip() for m in gpu_macs_raw.split(",") if m.strip()
                         ]
                     elif isinstance(gpu_macs_raw, list):
-                        settings.gpu_temp_macs = gpu_macs_raw
+                        settings.gpu_macs = gpu_macs_raw
+                    else:
+                        changed = True
+                except ValidationError:
+                    changed = True
+
+            mix_macs_raw = raw.get("MIX_MACS", raw.get("mix_macs"))
+            if mix_macs_raw is not None:
+                try:
+                    if isinstance(mix_macs_raw, str):
+                        settings.mix_macs = [
+                            m.strip() for m in mix_macs_raw.split(",") if m.strip()
+                        ]
+                    elif isinstance(mix_macs_raw, list):
+                        settings.mix_macs = mix_macs_raw
                     else:
                         changed = True
                 except ValidationError:
@@ -312,7 +335,8 @@ def save_settings(settings: Settings):
         "GPU_LINEAR": settings.gpu_linear.model_dump(),
         "CPU_FAN_CURVE": format_four_point_curve(settings.cpu_curve),
         "GPU_FAN_CURVE": format_four_point_curve(settings.gpu_curve),
-        "GPU_TEMP_MACS": settings.gpu_temp_macs,
+        "GPU_MACS": settings.gpu_macs,
+        "MIX_MACS": settings.mix_macs,
     }
 
     with open(CONFIG_PATH, "w") as f:
@@ -358,6 +382,7 @@ def parse_curve_input(curve: str) -> LinearMode:
         raise ValueError(
             "Invalid format. Use minTemp:minPwm,maxTemp:maxPwm or single integer."
         )
-    
+
+
 if __name__ == "__main__":
     print(get_build_identity())

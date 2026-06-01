@@ -7,7 +7,9 @@ from models import VersionInfo
 
 
 def extractVersion(
-    raw_tag: str, release_note: Optional[str] = None, installer_url: Optional[str] = None
+    raw_tag: str,
+    release_note: Optional[str] = None,
+    installer_url: Optional[str] = None,
 ):
     release_num = 1
     rc_num = 0

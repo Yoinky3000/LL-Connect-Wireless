@@ -185,7 +185,11 @@ def list_fans(rx: usb.core.Device, last_fans_data: List[Fan] = []):
                     (record[32] << 8) | record[33],
                     (record[34] << 8) | record[35],
                 ],
-                target_pwm=previous_target_pwm if not previous_target_pwm else previous_target_pwm.target_pwm,
+                target_pwm=(
+                    previous_target_pwm
+                    if not previous_target_pwm
+                    else previous_target_pwm.target_pwm
+                ),
                 is_bound=record[6:12] != b"\x00" * 6,
             )
         )
@@ -321,9 +325,10 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
     while True:
         try:
             cpu_temp = get_cpu_temp()
-            gpu_mac_set = set(SETTINGS.gpu_temp_macs)
-            should_read_gpu_temp = len(gpu_mac_set) > 0
-            gpu_temp = get_gpu_temp() if should_read_gpu_temp else None
+            gpu_mac_set = set(SETTINGS.gpu_macs)
+            mix_mac_set = set(SETTINGS.mix_macs)
+            needs_gpu_temp = len(gpu_mac_set) > 0 or len(mix_mac_set) > 0
+            gpu_temp = get_gpu_temp() if needs_gpu_temp else None
 
             cpu_target_pwm: Optional[int] = None
             gpu_target_pwm: Optional[int] = None
@@ -332,14 +337,14 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
                 if cpu_temp is not None:
                     cpu_target_pwm = temp_to_pwm(cpu_temp, SETTINGS.linear)
 
-                if should_read_gpu_temp and gpu_temp is not None:
+                if needs_gpu_temp and gpu_temp is not None:
                     gpu_target_pwm = temp_to_pwm(gpu_temp, SETTINGS.gpu_linear)
                     warned_missing_gpu_temp = False
-                elif should_read_gpu_temp and cpu_temp is not None:
+                elif needs_gpu_temp and cpu_temp is not None:
                     gpu_target_pwm = temp_to_pwm(cpu_temp, SETTINGS.gpu_linear)
                     if DEV_MODE and not warned_missing_gpu_temp:
                         print(
-                            "GPU temp unavailable; GPU-routed fan groups are temporarily using CPU temperature with GPU linear mapping."
+                            "GPU temp unavailable; GPU/mix fan groups are temporarily using CPU temperature with GPU linear mapping."
                         )
                         warned_missing_gpu_temp = True
                 else:
@@ -348,14 +353,14 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
                 if cpu_temp is not None:
                     cpu_target_pwm = curve_to_pwm(cpu_temp, SETTINGS.cpu_curve)
 
-                if should_read_gpu_temp and gpu_temp is not None:
+                if needs_gpu_temp and gpu_temp is not None:
                     gpu_target_pwm = curve_to_pwm(gpu_temp, SETTINGS.gpu_curve)
                     warned_missing_gpu_temp = False
-                elif should_read_gpu_temp and cpu_temp is not None:
+                elif needs_gpu_temp and cpu_temp is not None:
                     gpu_target_pwm = curve_to_pwm(cpu_temp, SETTINGS.cpu_curve)
                     if DEV_MODE and not warned_missing_gpu_temp:
                         print(
-                            "GPU temp unavailable; GPU-routed fan groups are temporarily using the CPU curve."
+                            "GPU temp unavailable; GPU/mix fan groups are temporarily using the CPU curve."
                         )
                         warned_missing_gpu_temp = True
                 else:
@@ -375,19 +380,37 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
 
             for f in fans:
                 mac = f.mac.lower()
-                wants_gpu_temp = mac in gpu_mac_set
-                if wants_gpu_temp and gpu_target_pwm is not None:
-                    target_pwm = gpu_target_pwm
-                elif cpu_target_pwm is not None:
-                    target_pwm = cpu_target_pwm
+
+                if mac in mix_mac_set:
+                    if cpu_target_pwm is not None and gpu_target_pwm is not None:
+                        target_pwm = max(cpu_target_pwm, gpu_target_pwm)
+                    elif cpu_target_pwm is not None:
+                        target_pwm = cpu_target_pwm
+                    elif gpu_target_pwm is not None:
+                        target_pwm = gpu_target_pwm
+                    else:
+                        target_pwm = f.pwm
+                elif mac in gpu_mac_set:
+                    if gpu_target_pwm is not None:
+                        target_pwm = gpu_target_pwm
+                    elif cpu_target_pwm is not None:
+                        target_pwm = cpu_target_pwm
+                    else:
+                        target_pwm = f.pwm
                 else:
-                    target_pwm = f.pwm
-                if target_pwm != f.target_pwm: updated_fans.append(f.mac)
+                    if cpu_target_pwm is not None:
+                        target_pwm = cpu_target_pwm
+                    else:
+                        target_pwm = f.pwm
+
+                if target_pwm != f.target_pwm:
+                    updated_fans.append(f.mac)
 
                 f.target_pwm = target_pwm
                 f.pwm = f.target_pwm
             for f in fans:
-                if not f.mac in updated_fans: continue
+                if not f.mac in updated_fans:
+                    continue
                 for i in range(len(fans)):
                     tx.write(USB_OUT, build_data(f, i))
                 time.sleep(0.1)
@@ -401,22 +424,29 @@ def fan_control_loop(rx: usb.core.Device, tx: usb.core.Device):
                 gpu_text = f"{gpu_temp:.1f} °C" if gpu_temp is not None else "N/A"
                 print(f"\n\nCPU Temp: {cpu_text}")
                 print(f"GPU Temp: {gpu_text}\n")
-                print(f"{'Fan Address':17} | Fans | Cur % | Tgt % | RPM")
-                print("-" * 72)
+                print(
+                    f"{'ID':>3}  {'Fan Address':17} | Fans | Src | Cur % | Tgt % | RPM"
+                )
+                print("-" * 78)
 
-                for d in fans:
-                    mac = d.mac
-
-                    tgt_pwm = d.target_pwm
+                for idx, d in enumerate(fans):
+                    mac_lower = d.mac.lower()
+                    if mac_lower in gpu_mac_set:
+                        src = "GPU"
+                    elif mac_lower in mix_mac_set:
+                        src = "MIX"
+                    else:
+                        src = "CPU"
 
                     cur_pct = int(d.pwm / 255 * 100)
-                    tgt_pct = int(tgt_pwm / 255 * 100)
+                    tgt_pct = int(d.target_pwm / 255 * 100)
 
                     rpm = ", ".join(str(r) for r in d.rpm if r > 0)
 
                     print(
-                        f"{mac:17} | "
+                        f"{idx:>3}  {d.mac:17} | "
                         f"{d.fan_count:>4} | "
+                        f"{src:>3} | "
                         f"{cur_pct:>5}% | "
                         f"{tgt_pct:>5}% | "
                         f"{rpm}"
@@ -458,7 +488,7 @@ if __name__ == "__main__":
                 os.chmod(SOCKET_PATH, 0o666)
             except OSError:
                 pass
-        
+
         try:
             tx = open_device(TX)
             rx = open_device(RX)

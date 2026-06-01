@@ -115,6 +115,17 @@ class FanMode(str, Enum):
 MAC_RE = re.compile(r"^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$")
 
 
+def _normalize_mac_list(values: List[str]) -> List[str]:
+    normalized: List[str] = []
+    for raw in values:
+        mac = raw.strip().lower()
+        if not MAC_RE.fullmatch(mac):
+            raise ValueError(f"invalid MAC address: {raw}")
+        if mac not in normalized:
+            normalized.append(mac)
+    return normalized
+
+
 class Settings(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     mode: FanMode = FanMode.curve
@@ -122,16 +133,19 @@ class Settings(BaseModel):
     gpu_linear: LinearMode = Field(default_factory=default_gpu_linear)
     cpu_curve: CurveMode = Field(default_factory=default_cpu_curve)
     gpu_curve: CurveMode = Field(default_factory=default_gpu_curve)
-    gpu_temp_macs: List[str] = Field(default_factory=list)
+    gpu_macs: List[str] = Field(default_factory=list)
+    mix_macs: List[str] = Field(default_factory=list)
 
-    @field_validator("gpu_temp_macs")
+    @field_validator("gpu_macs", "mix_macs")
     @classmethod
-    def validate_gpu_temp_macs(cls, values: List[str]):
-        normalized: List[str] = []
-        for raw in values:
-            mac = raw.strip().lower()
-            if not MAC_RE.fullmatch(mac):
-                raise ValueError(f"invalid MAC address: {raw}")
-            if mac not in normalized:
-                normalized.append(mac)
-        return normalized
+    def validate_mac_lists(cls, values: List[str]):
+        return _normalize_mac_list(values)
+
+    @model_validator(mode="after")
+    def validate_no_mac_overlap(self):
+        overlap = set(self.gpu_macs) & set(self.mix_macs)
+        if overlap:
+            raise ValueError(
+                f"MAC(s) cannot be in both gpu and mix groups: {', '.join(sorted(overlap))}"
+            )
+        return self

@@ -1,8 +1,15 @@
 import argparse
+import sys
 from pathlib import Path
 from typing import List
-from cli import generate_parser
 from vars import APP_NAME
+
+# argparse derives the program name shown in usage strings from sys.argv[0].
+# Set it before building the parser so the docs read 'll-connect-wireless ...'
+# instead of 'gen_cli_doc.py ...'.
+sys.argv[0] = APP_NAME
+
+from cli import generate_parser
 import re
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
